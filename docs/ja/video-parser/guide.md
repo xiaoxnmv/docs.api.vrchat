@@ -81,7 +81,9 @@ curl -G "https://api.kipfel.link/v1/music" --data-urlencode "json=1" --data-urle
 curl -G -A "Unity demo" "https://api.kipfel.link/v4/vrc" --data-urlencode "media=1" --data-urlencode "url=https://music.163.com/song?id=347230"
 ```
 
-v1 JSON は `code` / `data.content.play_url` を使用します。v3 / v4 の弾幕は `data.comments`、歌詞は `data.lyrics`（時刻は秒）、カバーは `cover_mode` / `cover_encoding` に従って取得してください。詳細は [API ドキュメント](/ja/video-parser/api) を参照してください。
+v1 JSON は `code` / `data.content.play_url` を使用します。v3 / v4 の弾幕は `comments`、歌詞は `data.lyrics`（時刻は秒）、カバーは `cover_mode` / `cover_encoding` に従って取得してください。詳細は [API ドキュメント](/ja/video-parser/api) を参照してください。
+
+VRChat で BC1 カバーを使う場合は、歌詞リクエストに `world` を指定し、一致する HTTPS のスロット URL をワールドに事前登録してください。音声だけを取得する場合は `/v1/music` を使えます。[BC1 GPU カバー](/ja/video-parser/api#bc1-cover) を参照してください。
 
 ## ワールドのスロットとビデオのパート
 

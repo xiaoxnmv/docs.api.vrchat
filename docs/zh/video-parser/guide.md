@@ -81,7 +81,9 @@ curl -G "https://api.kipfel.link/v1/music" --data-urlencode "json=1" --data-urle
 curl -G -A "Unity demo" "https://api.kipfel.link/v4/vrc" --data-urlencode "media=1" --data-urlencode "url=https://music.163.com/song?id=347230"
 ```
 
-v1 JSON 使用 `code` / `data.content.play_url`；v3 / v4 弹幕读取 `data.comments`，歌词读取 `data.lyrics`（时间单位秒）。封面按 `cover_mode` / `cover_encoding` 读取。完整字段见 [接口文档](/zh/video-parser/api)。
+v1 JSON 使用 `code` / `data.content.play_url`；v3 / v4 弹幕读取 `comments`，歌词读取 `data.lyrics`（时间单位秒）。封面按 `cover_mode` / `cover_encoding` 读取。完整字段见 [接口文档](/zh/video-parser/api)。
+
+在 VRChat 使用 BC1 封面时，歌词请求要传 `world`，并在世界里预设匹配的 HTTPS 槽位地址。只需要音频时可以用 `/v1/music`。详见 [BC1 GPU 封面](/zh/video-parser/api#bc1-cover)。
 
 ## 世界槽位与视频分 P
 

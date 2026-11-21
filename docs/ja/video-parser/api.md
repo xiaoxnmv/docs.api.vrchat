@@ -184,7 +184,7 @@ v1 の `log_id` はゲートウェイのリクエスト ID。`video_id` は抽�
 | パラメータ | 説明 |
 |---|---|
 | `cdn` | 任意。利用可能な CDN の識別子（例：`aly`）。省略時は既定の経路を使用します。 |
-| `track` | 任意。`original` はオリジナル音源（既定値）、`accompaniment` は伴奏音源（QQ Music、Kugou）を指定します。 |
+| `track` | 任意。`original` はオリジナル音源（既定値）、`accompaniment` は伴奏音源（QQ Music、Kugou、NetEase Cloud Music）を指定します。 |
 | `url` | 必須。曲の完全な URL。`cdn`、`track`、`json` などの API パラメータはすべて `url` より前に指定します。 |
 
 **呼び出し例**：
@@ -195,7 +195,7 @@ curl -G "https://api.kipfel.link/v3/vrc-lyric" --data-urlencode "track=accompani
 curl -G "https://api.kipfel.link/v4/vrc" --data-urlencode "cdn=aly" --data-urlencode "track=accompaniment" --data-urlencode "url=https://www.kugou.com/mixsong/j2i4p51.html"
 ```
 
-**応答**：通常の再生リクエストが成功すると、指定した音源へ 302 リダイレクトします。伴奏は MP4 です。V1 の JSON では再生 URL は `data.content.play_url` に入ります。V3/V4 の歌詞 JSON では、`cdn`、`track`、または `media=1` を指定するとトップレベルの `url` に再生 URL が入ります。
+**応答**：通常の再生リクエストが成功すると、指定した音源へ 302 リダイレクトします。伴奏は MP3 音声です。V1 の JSON では再生 URL は `data.content.play_url` に入ります。V3/V4 の歌詞 JSON では、`cdn`、`track`、または `media=1` を指定するとトップレベルの `url` に再生 URL が入ります。
 
 ---
 
@@ -213,26 +213,39 @@ v3 は弾幕や歌詞を必要とするプレイヤー向けです。**UA に `U
 ```json
 {
   "success": true,
-  "data": {
-    "platform": "bilibili",
-    "comments": [
-      {
-        "t": 0.5,
-        "c": "弾幕の内容",
-        "ty": 1,
-        "co": 16777215,
-        "fs": 25
-      }
-    ]
-  }
+  "platform": "哔哩哔哩",
+  "video_id": "BV1aAhm6vEA6",
+  "title": "ビデオのタイトル",
+  "has_more": false,
+  "comments": [
+    {
+      "t": 0.5,
+      "c": "弾幕の内容",
+      "ty": 1,
+      "co": 16777215,
+      "fs": 25
+    }
+  ],
+  "danmaku": [
+    {
+      "t": 0.5,
+      "c": "弾幕の内容",
+      "ty": 1,
+      "co": 16777215,
+      "fs": 25
+    }
+  ]
 }
 ```
 
 
 フィールド説明：
 - `success` (boolean)：リクエストが成功したかどうか。Unity 分岐では解析失敗時も空の応答を返します。詳細は下記を参照してください。
-- `data.platform` (string)：`bilibili`、`douyin` などのプラットフォーム識別子。表示名ではありません。
-- `data.comments` (array)：弾幕一覧。弾幕がない場合は `[]`。
+- `platform` (string)：`哔哩哔哩` などの中国語表示名。結果がない場合は `generic`。
+- `comments` (array)：トップレベルの弾幕一覧。空の場合は `[]`。`data` では包みません。
+- `danmaku` (array)：旧 Udon プレイヤー用の同じ配列。一方を読み取り、重複描画しないでください。
+- `title` / `video_id`：タイトル / リンクから抽出した BV 番号。ID を取得できない場合は空文字列。
+- `has_more` (boolean)：現在は常に `false`。時間窓のページングは接続されていません。
 - `comments[].t` (number)：時刻、単位は秒。
 - `comments[].c` (string)：弾幕の内容。
 - `comments[].ty` (number)：種類。`1` はスクロール、`4` は下部、`5` は上部など。
@@ -240,7 +253,7 @@ v3 は弾幕や歌詞を必要とするプレイヤー向けです。**UA に `U
 - `comments[].fs` (number)：フォントサイズ。
 
 ::: warning 注意
-現在のインターフェースはトップレベルの `danmaku`、`subtitles`、`subtitle_langs`、`has_more` を返しません。旧版の `limit`、`start_time`、`duration`、`ai_subtitle`、`lang` / `subtitle_lang` パラメータも接続されていません。クライアントでは `data.comments` を読み取ってください。
+弾幕インターフェースはトップレベルの `comments` を使用し、旧プレイヤー用に `danmaku` も保持します。`data.comments` は返しません。小さなメタデータは大きな配列より前に出力します。`subtitles` / `subtitle_langs` は返さず、旧版の `limit`、`start_time`、`duration`、`ai_subtitle`、`lang` / `subtitle_lang` は未接続です。
 :::
 
 ### 歌詞インターフェース
@@ -294,6 +307,8 @@ v3 は弾幕や歌詞を必要とするプレイヤー向けです。**UA に `U
 - `base64`（既定）：`cover_encoding: "jpeg"`。`cover_base64` を使用します。変換成功時は `cover_size: "128x128"`。
 - `palette`：`cover_encoding: "palette64"`。`cover_width`、`cover_height`、`cover_palette`、`cover_pixels` を使用します。成功時は 128×128、64 色、`cover_origin: "top-left"`。ピクセルは左から右、上から下の順で、各文字の `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_` 内の位置がパレット番号です。色は 10 進数の RGB。**ピクセル文字列は画像の Base64 ではありません**。
 - `url`：`cover_encoding: "url"`。`cover_url` から画像をダウンロードします。
+- `png`：リモートの JPEG、PNG、WebP を取得して 128×128 のバイナリ PNG に変換します。`cover_encoding: "png"`、ダウンロード先は `cover_url`。JSON に `cover_base64` は含みません。曲のスロットは固定の `/s/{番号}/cover.png?world=...` を使用でき、VRCUrl に事前登録できます。
+- `bc1`：`cover_url` から GPU カバーの PNG データを取得します。`cover_encoding` は `png`、BC1 の識別子は `cover_format: "wimbc1png1"` です。
 
 基本構造のパレット項目は他のモードでも空のまま残ります。カバーがない場合はサイズが 0、配列 / 文字列が空になりますが、歌詞の取得は失敗しません。旧版の `size` / `cover_size` リクエストパラメータは無効で、`cover_w` / `cover_h` も返しません。
 :::
@@ -302,6 +317,22 @@ v3 は弾幕や歌詞を必要とするプレイヤー向けです。**UA に `U
 curl -G -A "Unity demo" "https://api.kipfel.link/v3/vrc-danmaku" --data-urlencode "url=https://www.bilibili.com/video/BV1aAhm6vEA6"
 curl -G "https://api.kipfel.link/v3/vrc-lyric" --data-urlencode "json=1" --data-urlencode "url=https://music.163.com/song?id=347230"
 ```
+
+---
+
+### BC1 GPU カバー {#bc1-cover}
+
+BC1 のカバー URL は、シェーダー向けの BC1 ブロックを格納した `image/png` を返します。`wimbc1png1` 対応デコーダーを使用してください。元の縦横比を維持し、長辺の既定上限は 512 ピクセルです。原点は左上で、ミップマップはありません。
+
+- 歌詞リクエストに有効な `world` を指定すると、カバーがある場合に `data.cover_slot`、`data.cover_world` と `https://api.kipfel.link/s/0/cover-gpu.png?world=demo` のような URL が返ります。スロット割り当て後も手動プレイリストは保持されます。
+- 対応する HTTPS の VRCUrl をワールドに事前登録してください。`COVER_URL_NOT_BAKED` が表示された場合は、スキーム、ホスト、スロット番号、`world` がすべて一致するか確認してください。カバーに音楽 CDN の署名は不要です。
+- `world` を省略すると、カバーがある場合に動的な `/cover-gpu.png?url=...` が返ります。指定されたワールドが未登録、無効、または満杯の場合、`data.cover_url` は空になり、理由が `data.cover_error` に入ります。歌詞は引き続き取得できます。
+
+```bash
+curl -G "https://api.kipfel.link/v4/vrc" --data-urlencode "json=1" --data-urlencode "world=demo" --data-urlencode "url=https://music.163.com/song?id=347230"
+```
+
+`demo` を使用するワールド ID に置き換えてください。`media=1` を指定すると、トップレベルの `url` に音声 URL も含まれます。
 
 ---
 
@@ -530,7 +561,7 @@ curl "https://api.kipfel.link/video-info/0?world=demo"
 | `SLOT_MEDIA_ERROR` | 502 | 記録の再生直リンク解析失敗 |
 
 ::: tip 歌詞 / 弾幕インターフェースの「ソフト失敗」
-パラメータ検証後、v3 / v4 の Unity 分岐は解析に失敗しても HTTP 200、`success: true` の空応答を返します。弾幕は `data.platform: "generic"`、`data.comments: []`、歌詞は `generic` と空の歌詞 / カバー項目です。空応答には `cover_mode` がない場合があります。パラメータ不足や無効な URL などの検証エラーは通常どおり返します。
+パラメータ検証後、v3 / v4 の Unity 分岐は解析に失敗しても HTTP 200、`success: true` の空応答を返します。弾幕は `platform: "generic"`、`comments: []`、歌詞は `generic` と空の歌詞 / カバー項目です。空応答には `cover_mode` がない場合があります。パラメータ不足や無効な URL などの検証エラーは通常どおり返します。
 
 v1 の JSON 分岐では解析失敗時に `{ "code": -1, "message": "...", "log_id": "req_...", "data": {} }` を返します。通常は HTTP 200、ルールによる拒否は 403 です。HTTP ステータスだけで成功を判定しないでください。
 :::

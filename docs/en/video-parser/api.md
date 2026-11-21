@@ -184,7 +184,7 @@ In v1, `log_id` is the request ID. `video_id` uses an extracted BV ID, otherwise
 | Parameter | Description |
 |---|---|
 | `cdn` | Optional. Select an available CDN alias, for example `aly`. Omit it to use the default route. |
-| `track` | Optional. `original` plays the original track (default). `accompaniment` plays the instrumental track for QQ Music and Kugou. |
+| `track` | Optional. `original` plays the original track (default). `accompaniment` plays the instrumental track for QQ Music, Kugou, and NetEase Cloud Music. |
 | `url` | Required. The complete song link. Place API parameters such as `cdn`, `track`, and `json` before `url`. |
 
 **Examples**:
@@ -195,7 +195,7 @@ curl -G "https://api.kipfel.link/v3/vrc-lyric" --data-urlencode "track=accompani
 curl -G "https://api.kipfel.link/v4/vrc" --data-urlencode "cdn=aly" --data-urlencode "track=accompaniment" --data-urlencode "url=https://www.kugou.com/mixsong/j2i4p51.html"
 ```
 
-**Response**: A successful playback request returns a 302 redirect to the selected track. Accompaniment is served as MP4. In V1 JSON, the playback URL is `data.content.play_url`. In V3/V4 lyrics JSON, passing `cdn`, `track`, or `media=1` adds the playback URL as the top-level `url`.
+**Response**: A successful playback request returns a 302 redirect to the selected track. Accompaniment is served as MP3 audio. In V1 JSON, the playback URL is `data.content.play_url`. In V3/V4 lyrics JSON, passing `cdn`, `track`, or `media=1` adds the playback URL as the top-level `url`.
 
 ---
 
@@ -213,26 +213,39 @@ v3 is intended for players that need danmaku or lyrics. **A UA containing `Unity
 ```json
 {
   "success": true,
-  "data": {
-    "platform": "bilibili",
-    "comments": [
-      {
-        "t": 0.5,
-        "c": "Comment text",
-        "ty": 1,
-        "co": 16777215,
-        "fs": 25
-      }
-    ]
-  }
+  "platform": "哔哩哔哩",
+  "video_id": "BV1aAhm6vEA6",
+  "title": "Video title",
+  "has_more": false,
+  "comments": [
+    {
+      "t": 0.5,
+      "c": "Comment text",
+      "ty": 1,
+      "co": 16777215,
+      "fs": 25
+    }
+  ],
+  "danmaku": [
+    {
+      "t": 0.5,
+      "c": "Comment text",
+      "ty": 1,
+      "co": 16777215,
+      "fs": 25
+    }
+  ]
 }
 ```
 
 
 Field descriptions:
 - `success` (boolean): whether the request succeeded; the Unity branch also returns an empty response on parsing failure, as explained below.
-- `data.platform` (string): platform key, such as `bilibili` or `douyin`, rather than a display name.
-- `data.comments` (array): danmaku entries; `[]` when empty.
+- `platform` (string): Chinese platform display name, such as `哔哩哔哩`; `generic` when no result is available.
+- `comments` (array): top-level danmaku entries; `[]` when empty, with no `data` wrapper.
+- `danmaku` (array): the same entries for older Udon players; read one array to avoid drawing duplicates.
+- `title` / `video_id`: title / BV ID extracted from the link; the ID is empty when unavailable.
+- `has_more` (boolean): currently always `false`; time-window pagination is not connected.
 - `comments[].t` (number): timestamp in seconds.
 - `comments[].c` (string): comment text.
 - `comments[].ty` (number): type, such as `1` scrolling, `4` bottom or `5` top.
@@ -240,7 +253,7 @@ Field descriptions:
 - `comments[].fs` (number): font size.
 
 ::: warning Note
-The current interface does not return top-level `danmaku`, `subtitles`, `subtitle_langs` or `has_more`. The old `limit`, `start_time`, `duration`, `ai_subtitle`, `lang` / `subtitle_lang` parameters are not connected. Read `data.comments` in your client.
+The danmaku interface now uses top-level `comments`, retaining top-level `danmaku` for older players; `data.comments` is no longer returned. Small metadata fields precede the large arrays. `subtitles` / `subtitle_langs` are not returned, and the old `limit`, `start_time`, `duration`, `ai_subtitle`, `lang` / `subtitle_lang` parameters remain unconnected.
 :::
 
 ### Lyrics Interface
@@ -294,14 +307,32 @@ Read cover art according to `cover_mode` / `cover_encoding` in the response:
 - `base64` (default): `cover_encoding: "jpeg"`; read `cover_base64`. A successful conversion sets `cover_size: "128x128"`.
 - `palette`: `cover_encoding: "palette64"`; read `cover_width`, `cover_height`, `cover_palette` and `cover_pixels`. A successful image is 128×128 with 64 colors and `cover_origin: "top-left"`. Pixels run left to right, top to bottom. Each character's position in `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_` is its palette index; palette colors are decimal RGB. **This pixel string is not a Base64 image**.
 - `url`: `cover_encoding: "url"`; download the image from `cover_url`.
+- `png`: fetches a remote JPEG, PNG or WebP image and converts it into a 128×128 binary PNG. `cover_encoding: "png"`; download `cover_url`. JSON contains no `cover_base64`. Song slots use a stable `/s/{ID}/cover.png?world=...` URL that can be baked into a world's VRCUrl list.
+- `bc1`: download the GPU cover's PNG data atlas from `cover_url`. `cover_encoding` is `png`, and `cover_format: "wimbc1png1"` identifies the BC1 format.
 
-The base palette fields remain present and empty in other modes. Missing covers leave dimensions at 0 and arrays / strings empty without failing the lyrics request. The old `size` / `cover_size` request parameters have no effect, and `cover_w` / `cover_h` are not returned.
+Missing artwork does not prevent lyrics from being returned. The `size` / `cover_size` parameters have no effect on the lyrics endpoint. BC1 clients should read the actual texture dimensions from the PNG data atlas.
 :::
 
 ```bash
 curl -G -A "Unity demo" "https://api.kipfel.link/v3/vrc-danmaku" --data-urlencode "url=https://www.bilibili.com/video/BV1aAhm6vEA6"
 curl -G "https://api.kipfel.link/v3/vrc-lyric" --data-urlencode "json=1" --data-urlencode "url=https://music.163.com/song?id=347230"
 ```
+
+---
+
+### BC1 GPU covers {#bc1-cover}
+
+The BC1 cover URL returns `image/png` containing BC1 blocks for a shader. Use a decoder that supports `wimbc1png1`. The texture preserves the source aspect ratio and defaults to a maximum side of 512 pixels, with top-left origin and no mipmaps.
+
+- Pass an enabled `world` ID in the lyrics request to receive `data.cover_slot`, `data.cover_world`, and a URL such as `https://api.kipfel.link/s/0/cover-gpu.png?world=demo` when artwork is available. Assigning a slot preserves the manual playlist.
+- Bake the corresponding HTTPS VRCUrl into the world. Match the full scheme, host, slot ID and `world` parameter if the player reports `COVER_URL_NOT_BAKED`. The slot URL requires no music CDN signature.
+- Without `world`, the API returns a dynamic `/cover-gpu.png?url=...` URL when artwork is available. If the requested world is unknown, disabled, or full, the response includes `data.cover_error` and an empty `data.cover_url`. Lyrics remain available.
+
+```bash
+curl -G "https://api.kipfel.link/v4/vrc" --data-urlencode "json=1" --data-urlencode "world=demo" --data-urlencode "url=https://music.163.com/song?id=347230"
+```
+
+Replace `demo` with your world ID. Add `media=1` to include the audio URL in the top-level `url`.
 
 ---
 
@@ -530,7 +561,7 @@ Business errors from `/p`, `/poll`, `/slots`, `/pocl`, `/s/{n}`, `/sell/{n}` and
 | `SLOT_MEDIA_ERROR` | 502 | Record media URL parsing failed |
 
 ::: tip Soft Failures for Lyrics / Danmaku
-After parameter validation, parsing failures in the Unity branch of v3 / v4 still return HTTP 200 and an empty `success: true` response. Danmaku uses `data.platform: "generic"` and `data.comments: []`; lyrics use `generic`, empty lyrics and empty cover fields. These empty responses may omit `cover_mode`. Missing parameters or invalid URLs still return validation errors.
+After parameter validation, parsing failures in the Unity branch of v3 / v4 still return HTTP 200 and an empty `success: true` response. Danmaku uses `platform: "generic"` and `comments: []`; lyrics use `generic`, empty lyrics and empty cover fields. These empty responses may omit `cover_mode`. Missing parameters or invalid URLs still return validation errors.
 
 The v1 JSON branch instead returns `{ "code": -1, "message": "...", "log_id": "req_...", "data": {} }` on parsing failure, usually with HTTP 200, or 403 for a rule block. Do not use HTTP status alone to decide whether parsing succeeded.
 :::

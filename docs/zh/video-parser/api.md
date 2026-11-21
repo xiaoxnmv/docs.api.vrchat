@@ -184,7 +184,7 @@ v1 的 `log_id` 是请求 ID。`video_id` 在能提取 BV 号时使用 BV 号，
 | 参数 | 说明 |
 |---|---|
 | `cdn` | 可选，指定可用的线路参数，例如 `aly`；省略时使用默认线路 |
-| `track` | 可选，`original` 播放原版（默认），`accompaniment` 播放纯伴奏（QQ 音乐、酷狗） |
+| `track` | 可选，`original` 播放原版（默认），`accompaniment` 播放纯伴奏（QQ 音乐、酷狗、网易云音乐） |
 | `url` | 必填，完整歌曲链接。把 `cdn`、`track`、`json` 等接口参数都写在 `url` 前面 |
 
 **调用示例**：
@@ -195,7 +195,7 @@ curl -G "https://api.kipfel.link/v3/vrc-lyric" --data-urlencode "track=accompani
 curl -G "https://api.kipfel.link/v4/vrc" --data-urlencode "cdn=aly" --data-urlencode "track=accompaniment" --data-urlencode "url=https://www.kugou.com/mixsong/j2i4p51.html"
 ```
 
-**响应**：普通播放请求成功时返回 302，跳转到所选音轨；伴奏为 MP4。V1 的 JSON 播放地址在 `data.content.play_url`。V3/V4 返回歌词等 JSON 时，指定 `cdn`、`track` 或 `media=1` 会在顶层 `url` 返回播放地址。
+**响应**：普通播放请求成功时返回 302，跳转到所选音轨；伴奏为 MP3 音频。V1 的 JSON 播放地址在 `data.content.play_url`。V3/V4 返回歌词等 JSON 时，指定 `cdn`、`track` 或 `media=1` 会在顶层 `url` 返回播放地址。
 
 ---
 
@@ -213,26 +213,39 @@ v3 接口面向需要弹幕、歌词的播放器。**UA 含 `Unity` 或 `unity`�
 ```json
 {
   "success": true,
-  "data": {
-    "platform": "bilibili",
-    "comments": [
-      {
-        "t": 0.5,
-        "c": "弹幕内容",
-        "ty": 1,
-        "co": 16777215,
-        "fs": 25
-      }
-    ]
-  }
+  "platform": "哔哩哔哩",
+  "video_id": "BV1aAhm6vEA6",
+  "title": "视频标题",
+  "has_more": false,
+  "comments": [
+    {
+      "t": 0.5,
+      "c": "弹幕内容",
+      "ty": 1,
+      "co": 16777215,
+      "fs": 25
+    }
+  ],
+  "danmaku": [
+    {
+      "t": 0.5,
+      "c": "弹幕内容",
+      "ty": 1,
+      "co": 16777215,
+      "fs": 25
+    }
+  ]
 }
 ```
 
 
 字段说明：
 - `success` (boolean)：请求是否成功；Unity 分支解析失败也会返回空壳，见下方说明。
-- `data.platform` (string)：平台标识，如 `bilibili`、`douyin`，不是平台中文名。
-- `data.comments` (array)：弹幕列表，无弹幕时为 `[]`。
+- `platform` (string)：平台中文名，如 `哔哩哔哩`；没有可用结果时为 `generic`。
+- `comments` (array)：顶层弹幕列表，无弹幕时为 `[]`；不再包在 `data` 里。
+- `danmaku` (array)：与 `comments` 相同的兼容字段，供旧版 Udon 播放器读取；客户端选一份显示，不要重复绘制。
+- `title` / `video_id`：标题 / 从链接提取的 BV 号；无法提取视频 ID 时为空字符串。
+- `has_more` (boolean)：当前固定 `false`，未接入时间窗分页。
 - `comments[].t` (number)：时间点，单位：秒。
 - `comments[].c` (string)：弹幕内容。
 - `comments[].ty` (number)：类型，如 `1` 滚动、`4` 底部、`5` 顶部。
@@ -240,7 +253,7 @@ v3 接口面向需要弹幕、歌词的播放器。**UA 含 `Unity` 或 `unity`�
 - `comments[].fs` (number)：字号。
 
 ::: warning 注意
-当前接口不返回顶层 `danmaku`、`subtitles`、`subtitle_langs`、`has_more`，也没有接入旧版的 `limit`、`start_time`、`duration`、`ai_subtitle`、`lang` / `subtitle_lang` 参数。客户端请读取 `data.comments`，不要照旧字段去找。
+当前弹幕接口使用顶层 `comments`，同时保留顶层 `danmaku` 兼容旧播放器；不再返回 `data.comments`。标题等小字段排在大数组前面。当前不返回 `subtitles`、`subtitle_langs`，旧版 `limit`、`start_time`、`duration`、`ai_subtitle`、`lang` / `subtitle_lang` 参数仍未接入。
 :::
 
 ### 歌词接口
@@ -294,14 +307,33 @@ v3 接口面向需要弹幕、歌词的播放器。**UA 含 `Unity` 或 `unity`�
 - `base64`（默认）：`cover_encoding: "jpeg"`，读取 `cover_base64`；成功时 `cover_size: "128x128"`。
 - `palette`：`cover_encoding: "palette64"`，读取 `cover_width`、`cover_height`、`cover_palette`、`cover_pixels`。成功时为 128×128、64 色，`cover_origin: "top-left"`。像素从左到右、从上到下排列，每个字符在 `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_` 中的位置就是调色板下标；调色板为十进制 RGB。**像素字符串不是图片 Base64**。
 - `url`：`cover_encoding: "url"`，读取 `cover_url`，客户端自行下载图片。
+- `png`：抓取远程 JPEG、PNG 或 WebP 并转换为 128×128 的二进制 PNG，`cover_encoding: "png"`，从 `cover_url` 下载；JSON 不包含 `cover_base64`。歌曲槽位返回固定的 `/s/{编号}/cover.png?world=...` 地址，便于世界预设 VRCUrl。
+- `bc1`：读取 `cover_url` 下载 GPU 封面的 PNG 数据图。`cover_encoding` 为 `png`，通过 `cover_format: "wimbc1png1"` 识别 BC1。
 
-基础结构的调色板字段在其它模式下仍保留为空值。没有封面时尺寸为 0、数组 / 字符串为空，不影响歌词返回。旧版 `size` / `cover_size` 请求参数不生效，也不返回 `cover_w` / `cover_h`。
+没有封面时仍返回歌词。歌词接口的 `size` / `cover_size` 请求参数不生效。BC1 客户端应从 PNG 数据图读取实际纹理尺寸。
 :::
 
 ```bash
 curl -G -A "Unity demo" "https://api.kipfel.link/v3/vrc-danmaku" --data-urlencode "url=https://www.bilibili.com/video/BV1aAhm6vEA6"
 curl -G "https://api.kipfel.link/v3/vrc-lyric" --data-urlencode "json=1" --data-urlencode "url=https://music.163.com/song?id=347230"
 ```
+
+---
+
+### BC1 GPU 封面 {#bc1-cover}
+
+BC1 模式下，`cover_url` 返回 `image/png`。PNG 内存放供着色器读取的 BC1 块，需要支持 `wimbc1png1` 的解码组件才能显示封面。默认封面长边上限为 512，保持原图比例。纹理从左上角开始，无 mipmap。
+
+- **VRChat 世界**使用已启用的世界编号请求歌词，例如在 `/v4/vrc` 请求中传 `world=demo`。有可用封面时，响应包含 `data.cover_slot`、`data.cover_world` 和形如 `https://api.kipfel.link/s/0/cover-gpu.png?world=demo` 的 `data.cover_url`。该分配会复用歌曲槽位，并保留当前手动歌单。
+- **预设 VRCUrl** 时，HTTPS 协议、域名、槽位编号和 `world` 都应和返回地址一致。地址无需附加音乐 CDN 签名。出现 `COVER_URL_NOT_BAKED` 时，核对世界里预设的完整地址。
+- **普通 HTTP 客户端**可以在省略 `world` 时使用返回的 `/cover-gpu.png?url=...` 动态地址。内层图片 URL 需要编码。
+- 世界未注册、已停用或槽位已满时，`data.cover_url` 为空，`data.cover_error` 会说明原因，歌词仍可读取。歌曲没有封面时也可能返回空地址。
+
+```bash
+curl -G "https://api.kipfel.link/v4/vrc" --data-urlencode "json=1" --data-urlencode "world=demo" --data-urlencode "url=https://music.163.com/song?id=347230"
+```
+
+将 `demo` 换成你已启用的世界编号。需要在同一个 JSON 中取得音频地址时，可加 `media=1`，然后读取顶层 `url`。
 
 ---
 
@@ -530,7 +562,7 @@ curl "https://api.kipfel.link/video-info/0?world=demo"
 | `SLOT_MEDIA_ERROR` | 502 | 记录的播放直链解析失败 |
 
 ::: tip 歌词/弹幕接口的“软失败”
-通过参数校验后，v3 / v4 的 Unity 分支解析失败也返回 HTTP 200、`success: true` 的空壳：弹幕为 `data.platform: "generic"`、`data.comments: []`；歌词为 `generic`、空歌词与空封面字段，空壳不保证带 `cover_mode`。参数缺失、无效链接等校验错误仍正常报错。
+通过参数校验后，v3 / v4 的 Unity 分支解析失败也返回 HTTP 200、`success: true` 的空壳：弹幕为 `platform: "generic"`、`comments: []`；歌词为 `generic`、空歌词与空封面字段，空壳不保证带 `cover_mode`。参数缺失、无效链接等校验错误仍正常报错。
 
 v1 的 JSON 分支解析失败则返回 `{ "code": -1, "message": "...", "log_id": "req_...", "data": {} }`，通常 HTTP 200，规则拦截为 403；不要只看 HTTP 状态判断成功。
 :::
