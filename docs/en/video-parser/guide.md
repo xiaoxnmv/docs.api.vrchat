@@ -60,7 +60,7 @@ Read each song's `tracks[].url` from `/v4/playlist?url={NetEase playlist link}`,
 :::
 
 ::: warning Note
-YouTube, YouTube Music and Migu native parsers are not connected in the current workspace. Switching to the music interface does not restore them.
+YouTube, YouTube Music and Migu are currently unsupported. Switching to the music interface does not make them available.
 :::
 
 ## Alternative Interfaces

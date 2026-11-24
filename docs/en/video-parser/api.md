@@ -504,7 +504,7 @@ Use `/p` below to load a new playlist or set of video parts. Use `/poll` for the
 
 ### `GET /p?world={world ID}&u={playlist ID or link}`
 
-Loads a list without a token and returns the same kind of structure as `/poll`. `url` is an alias for `u`; a bare number is treated as a NetEase playlist ID. Supports NetEase playlists and Bilibili parts / collections.
+Loads a player-side list and returns the same kind of structure as `/poll`. `url` is an alias for `u`; a bare number is treated as a NetEase playlist ID. Supports NetEase playlists and Bilibili parts / collections.
 
 Optional `scope`: `auto` (default), `parts` or `collection`, selecting the Bilibili list scope.
 

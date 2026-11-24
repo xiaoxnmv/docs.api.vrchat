@@ -102,7 +102,7 @@ v1 JSON の解析失敗は通常 HTTP 200、`code: -1`。v3 / v4 の Unity 分�
 
 ::: info お問い合わせ
 - **協力および問題に関するお問い合わせ**: [admin@kipfel.link](mailto:admin@kipfel.link)
-- **運用担当者 / エラーおよび使用不能に関するお問い合わせ**: 海落QWQ [xiao-luo@kipfel.cn](mailto:xiao-luo@kipfel.cn)
+- **不具合報告・利用不可時の連絡先**: 海落QWQ [xiao-luo@kipfel.cn](mailto:xiao-luo@kipfel.cn)
 - **VRChat グループ**: [https://vrc.group/KOOYL.8164](https://vrc.group/KOOYL.8164)
 :::
 

@@ -102,7 +102,7 @@ v1 JSON parsing failures usually return HTTP 200 with `code: -1`. The Unity bran
 
 ::: info Contact Us
 - **Cooperation and Problem Contact**: [admin@kipfel.link](mailto:admin@kipfel.link)
-- **Operations Staff / Error and Unusable Contact**: Hailuo QWQ [xiao-luo@kipfel.cn](mailto:xiao-luo@kipfel.cn)
+- **Technical Support / Bug Reports**: Hailuo QWQ [xiao-luo@kipfel.cn](mailto:xiao-luo@kipfel.cn)
 - **VRChat Group**: [https://vrc.group/KOOYL.8164](https://vrc.group/KOOYL.8164)
 :::
 

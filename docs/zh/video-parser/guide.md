@@ -60,7 +60,7 @@ https://api.kipfel.link/v1/vrc?url=https://b23.tv/xxxx
 :::
 
 ::: warning 注意
-当前工作区的 YouTube、YouTube Music、咪咕原生解析器未接入，不能靠换成音乐接口恢复。
+YouTube、YouTube Music、咪咕暂不支持，切换到音乐接口同样不可用。
 :::
 
 ## 备用接口

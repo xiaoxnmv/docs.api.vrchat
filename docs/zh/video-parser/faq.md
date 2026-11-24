@@ -102,7 +102,7 @@ v1 JSON 的解析失败通常为 HTTP 200、`code: -1`；v3 / v4 Unity 分支解
 
 ::: info 联系我们
 - **合作以及问题联系**：[admin@kipfel.link](mailto:admin@kipfel.link)
-- **运维人员 / 错误以及无法使用联系**：海落QWQ [xiao-luo@kipfel.cn](mailto:xiao-luo@kipfel.cn)
+- **故障反馈 / 无法使用联系**：海落QWQ [xiao-luo@kipfel.cn](mailto:xiao-luo@kipfel.cn)
 - **VRChat群组**：[https://vrc.group/KOOYL.8164](https://vrc.group/KOOYL.8164)
 :::
 

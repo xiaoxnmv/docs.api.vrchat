@@ -60,7 +60,7 @@ https://api.kipfel.link/v1/vrc?url=https://b23.tv/xxxx
 :::
 
 ::: warning 注意
-現在のワークスペースには YouTube、YouTube Music、Migu のネイティブ解析器が接続されていません。音楽インターフェースへの切り替えでは復旧しません。
+YouTube、YouTube Music、Migu は現在非対応です。音楽インターフェースに切り替えても利用できません。
 :::
 
 ## 代替インターフェース

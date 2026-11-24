@@ -10,8 +10,8 @@ This page records the update history of the Kipfel video parsing service.
 ## Contact Information
 
 ### Feedback
-- **Admin**: [admin@kipfel.link](mailto:admin@kipfel.link)
-- **Operations Staff**: Hailuo QWQ [xiao-luo@kipfel.cn](mailto:xiao-luo@kipfel.cn)
+- **Contact**: [admin@kipfel.link](mailto:admin@kipfel.link)
+- **Technical Support**: Hailuo QWQ [xiao-luo@kipfel.cn](mailto:xiao-luo@kipfel.cn)
 
 ---
 
@@ -45,14 +45,11 @@ This page records the update history of the Kipfel video parsing service.
 - [Reason for banning] The service does not have whitelist verification by default. Today's investigation found illegal videos being played.
 
 ### 26/06/21
-- Fixed some abnormal crashes in backend parsing, which caused some video parsing to not work properly. It has now been fixed.
-- Mo Bai QWQ has been adjusted to be the documentation lead, responsible for document area management and content maintenance.
-- Hailuo QWQ has been adjusted to be the backend video parsing repair, responsible for parsing service maintenance and fault repair.
-- kole-knol's position has been updated to domain provider server holder.
+- Fixed an issue where some video links failed to parse properly.
 
 ### 26/06/15
 - Deleted the link replacement cache function. The reason is that the same link may not be playable by others but playable by oneself.
-- Status repair is complete and has little impact on the server, and has been put into use.
+- Status repair is complete and normal service has resumed.
 
 ### 26/06/14
 - Fixed and optimized that as long as the correct bv and Douyin links are returned, they can be parsed normally.
@@ -65,11 +62,11 @@ This page records the update history of the Kipfel video parsing service.
 - Rewrote Bilibili live broadcast replacement logic (if you find it cannot be played normally, please contact us).
 
 ### 26/06/12
-- Fixed the issue where domestic live broadcast parsing failed because the administrator forgot to renew the server, and has been reprimanded.
+- Fixed an issue where domestic live stream parsing failed.
 
 ### 26/06/11
 - Fixed Bilibili official event live broadcast parsing failure.
-- Fixed the issue where the entire parsing crashed due to uploading files to the wrong server due to staying up late (fixed at 07:00 (UTC+8)).
+- Fixed a service interruption that caused parsing failures (restored at 07:00 UTC+8).
 - Fixed Bilibili short live link parsing failure.
 - Fixed the issue where live links were incorrectly replaced with video links.
 
