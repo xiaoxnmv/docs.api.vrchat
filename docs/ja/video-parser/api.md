@@ -527,6 +527,136 @@ curl "https://api.kipfel.link/video-info/0?world=demo"
 
 ---
 
+## マルチプラットフォーム検索と BC1 カバー {#search}
+
+音楽（NetEase、Kugou、QQ Music、Kuwo）および動画（Bilibili、AcFun）の単一プラットフォーム検索と混合検索に対応しています。各項目に出典プラットフォームを付与し、歌詞カバーと同一の `wimbc1png1` BC1 テクスチャカバーを返します。
+
+**エンドポイント**：`GET /search`（エイリアス `GET /v4/search`）
+
+::: tip VRChat 向けパラメータ順
+VRChat では固定パラメータ（`w`、`p`、`pl`、`m`、`f`、`st`、`dm`、`n`、`pg`）をすべて前に置き、検索語 **`q=` を末尾に配置**してください。末尾の検索語に `&` が含まれていても途中で切断されません。
+:::
+
+### リクエストパラメータ（短縮名・正式名の両方に対応）
+
+| 短縮名 | 正式名 | 既定値 | 説明 |
+| --- | --- | --- | --- |
+| `w` | `world` | 任意 | 有効なワールド番号。指定すると専用検索プールにスロットを割り当てます |
+| `p` | `platform` | `a` | `wy`(NetEase)、`kg`(Kugou)、`qq`(QQ Music)、`kw`(Kuwo)、`bv`(Bilibili)、`ac`(AcFun)、`m`(全音楽)、`v`(全動画)、`a`(混合)、カンマ複数指定（例：`wy,kg,bv`） |
+| `pl` | `pool` | `p` から自動 | プール上書き：`m`(`search_music`)、`v`(`search_video`)、`a`(`search_all`) |
+| `m` | `preset` | `d` | プリセット：`c`(BC1 カバーのみ)、`s`(カバー+タイトル)、`d`(既定・統計オフ)、`f`(統計含む全項目) |
+| `f` | `fields` | `m` に従う | カンマ区切りのカスタム項目コード（`m` より優先） |
+| `st` | `stats` | `0` | `1` で再生数・いいね・弾幕・コメント・共有・お気に入りを一括有効化 |
+| `dm` | `desc_max` | `80` | 概要文の最大文字数（`0` で省略、上限 `300`） |
+| `n` | `limit` | `10` | 取得件数（`1`–`30`） |
+| `pg` | `page` | `1` | ページ番号（`1` 始まり） |
+| `q` | `keyword` | **必須（末尾）** | 検索キーワード |
+
+### カスタム項目コード（`f=`）と短縮 JSON キー
+
+VRChat のレスポンス上限を避けるため、統計数値は既定でオフです。必要な項目だけ指定できます：
+
+| `f=` コード | 正式別名 | JSON キー | 既定 | 説明 |
+| --- | --- | --- | --- | --- |
+| `c` | `cover` | `cv` | オン | BC1 テクスチャカバー URL |
+| `t` | `title` | `t` | オン | タイトル |
+| `d` | `desc` | `d` | オン | 概要（`dm` 文字で省略） |
+| `a` | `artist` / `author` | `a` | オン | 歌手 / 投稿者 |
+| `du` | `duration` | `du` | オン | 再生時間（秒） |
+| `u` | `play` | `u` | オン | 再生 / 詳細 URL |
+| `al` | `album` | `al` | オフ | アルバム名 |
+| `id` | `id` / `bvid` | `id`, `bv` | オフ | 作品 ID / BV 番号 |
+| `src` | `url` / `source` | `src` | オフ | 元リンク |
+| `st` | `stats` | `st` | オフ | 統計データ一式 |
+| `vw` | `views` | `st.vw` | オフ | 再生数 |
+| `lk` | `likes` | `st.lk` | オフ | いいね数 |
+| `dm` | `danmaku` | `st.dm` | オフ | 弾幕数 |
+| `cm` | `comments` | `st.cm` | オフ | コメント数 |
+| `sh` | `shares` | `st.sh` | オフ | 共有数 |
+| `fv` | `favorites` | `st.fv` | オフ | お気に入り数 |
+
+### 3 つの独立検索プールと固定スロット URL
+
+検索は既存の `music` / `video` / `collection` プールとは独立した 3 プールを使用します：
+
+| 検索プール | 短縮パス | 固定 BC1 カバー URL | 固定再生 / 詳細 URL |
+| --- | --- | --- | --- |
+| `search_music` | `m` | `/search/m/{i}/cover-gpu.png?w={ワールド番号}` | `/search/m/{i}?w={ワールド番号}` |
+| `search_video` | `v` | `/search/v/{i}/cover-gpu.png?w={ワールド番号}` | `/search/v/{i}?w={ワールド番号}` |
+| `search_all` | `a` | `/search/a/{i}/cover-gpu.png?w={ワールド番号}` | `/search/a/{i}?w={ワールド番号}` |
+
+- `/search/{m|v|a}/{i}/cover-gpu.png?w=...` は `image/png`（`X-Texture-Format: wimbc1png1`、`X-Texture-Origin: top-left`、`X-Texture-Mipmaps: 0`）を返します。
+- `/search/{m|v|a}/{i}?w=...` は通常のプレイヤーでは 302 リダイレクト、Unity UA または `json=1` では音楽は歌詞 JSON、動画は弾幕 JSON を返します。
+
+### 呼び出し例
+
+```bash
+# 単一音楽プラットフォーム（search_music プール）
+curl "https://api.kipfel.link/search?w=demo&p=wy&q=Beyond"
+
+# 音楽のみ混合検索（NetEase + Kugou + QQ Music + Kuwo → search_music プール）
+curl "https://api.kipfel.link/search?w=demo&p=m&n=4&q=Beyond"
+
+# 動画のみ混合検索（Bilibili + AcFun → search_video プール）
+curl "https://api.kipfel.link/search?w=demo&p=v&n=4&q=VRChat"
+
+# BC1 カバーのみ（m=c）
+curl "https://api.kipfel.link/search?w=demo&p=bv&m=c&n=10&q=VRChat"
+
+# カスタム項目：カバー + タイトル + 再生数 + いいね + 弾幕
+curl "https://api.kipfel.link/search?w=demo&p=bv&f=c,t,vw,lk,dm&n=8&q=VRChat"
+
+# 全プラットフォーム混合検索（search_all プール）
+curl "https://api.kipfel.link/search?w=demo&p=a&n=10&q=VRChat"
+```
+
+### JSON レスポンス例
+
+既定モード（統計オフ・出典プラットフォームと BC1 カバー URL を返却）：
+
+```json
+{
+  "ok": true,
+  "pl": "search_all",
+  "w": "demo",
+  "ce": "png",
+  "cf": "wimbc1png1",
+  "co": "top-left",
+  "cm": false,
+  "cs": 512,
+  "total": 2,
+  "items": [
+    {
+      "i": 0,
+      "p": "netease",
+      "pn": "网易云音乐",
+      "k": "m",
+      "t": "Sunny Day",
+      "a": "Artist",
+      "du": 269,
+      "cv": "https://api.kipfel.link/search/a/0/cover-gpu.png?w=demo",
+      "u": "https://api.kipfel.link/search/a/0?w=demo"
+    },
+    {
+      "i": 1,
+      "p": "bilibili",
+      "pn": "哔哩哔哩",
+      "k": "v",
+      "t": "VRChat Showcase",
+      "a": "Creator",
+      "d": "概要...",
+      "du": 185,
+      "cv": "https://api.kipfel.link/search/a/1/cover-gpu.png?w=demo",
+      "u": "https://api.kipfel.link/search/a/1?w=demo"
+    }
+  ]
+}
+```
+
+`m=c` では各項目に `i`、`p`、`cv` のみ返されます。統計項目（例：`f=c,t,vw,lk,dm`）を指定すると `"st": { "vw": 139021, "lk": 6119, "dm": 145 }` が付与されます。
+
+---
+
 ## 共通レスポンス形式
 
 ### エラー応答形式

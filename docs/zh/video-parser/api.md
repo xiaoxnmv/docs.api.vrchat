@@ -528,6 +528,139 @@ curl "https://api.kipfel.link/video-info/0?world=demo"
 
 ---
 
+## 多平台搜索与 BC1 封面 {#search}
+
+支持音乐（网易云、酷狗、QQ 音乐、酷我）与视频（哔哩哔哩、AcFun）的单平台搜索与混合搜索，每条结果自动标注来源平台，并提供与歌词封面完全一致的 `wimbc1png1` BC1 纹理封面。
+
+**接口**：`GET /search`（别名 `GET /v4/search`）
+
+::: tip VRChat 参数顺序规范
+在 VRChat 中，请将所有固定参数（`w`、`p`、`pl`、`m`、`f`、`st`、`dm`、`n`、`pg`）写在前面，把搜索词 **`q=` 放在最后**，便于世界端直接拼接玩家输入。关键词位于末尾时即使包含 `&` 也不会被截断。
+:::
+
+### 请求参数（短参均兼容完整英文名）
+
+| 短参 | 完整名 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `w` | `world` | 可选 | 已开通的世界编号；传入后分配独立搜索池槽位，省略时返回动态 BC1 地址 |
+| `p` | `platform` | `a` | `wy`(网易云)、`kg`(酷狗)、`qq`(QQ 音乐)、`kw`(酷我)、`bv`(B 站)、`ac`(AcFun)、`m`(全部音乐)、`v`(全部视频)、`a`(音视频混合)，也支持逗号多选如 `wy,kg,bv` |
+| `pl` | `pool` | 按 `p` 自动 | 覆盖归池：`m`(`search_music`)、`v`(`search_video`)、`a`(`search_all`) |
+| `m` | `preset` | `d` | 字段预设：`c`(仅 BC1 封面)、`s`(封面+标题)、`d`(默认，关闭统计)、`f`(全量含统计) |
+| `f` | `fields` | 按 `m` | 自定义返回字段短码（逗号分隔，优先级高于 `m`），见下表 |
+| `st` | `stats` | `0` | 传 `1` 开启全部统计字段（播放、点赞、弹幕、评论、转发、收藏） |
+| `dm` | `desc_max` | `80` | 简介最大字符数（`0` 不返回简介，上限 `300`） |
+| `n` | `limit` | `10` | 返回条数（`1`–`30`） |
+| `pg` | `page` | `1` | 页码（从 `1` 起） |
+| `q` | `keyword` | **必填（放最后）** | 搜索关键词 |
+
+### 自定义字段短码（`f=`）与返回键名
+
+默认关闭点赞、播放量、弹幕数、评论数、转发数与收藏数，避免返回体过大超出 VRChat 限制；需要时可按需开启或仅保留 BC1 封面：
+
+| `f=` 短码 | 兼容全名 | JSON 键 | 默认 | 说明 |
+| --- | --- | --- | --- | --- |
+| `c` | `cover` | `cv` | 开启 | BC1 纹理封面地址 |
+| `t` | `title` | `t` | 开启 | 标题 |
+| `d` | `desc` | `d` | 开启 | 简介（按 `dm` 截断） |
+| `a` | `artist` / `author` | `a` | 开启 | 歌手 / 作者 |
+| `du` | `duration` | `du` | 开启 | 时长（秒） |
+| `u` | `play` | `u` | 开启 | 播放 / 详情地址 |
+| `al` | `album` | `al` | 关闭 | 音乐专辑名 |
+| `id` | `id` / `bvid` | `id`、`bv` | 关闭 | 作品 ID / BV 号 |
+| `src` | `url` / `source` | `src` | 关闭 | 原始链接 |
+| `st` | `stats` | `st` | 关闭 | 全部统计数据 |
+| `vw` | `views` | `st.vw` | 关闭 | 播放量 |
+| `lk` | `likes` | `st.lk` | 关闭 | 点赞数 |
+| `dm` | `danmaku` | `st.dm` | 关闭 | 弹幕数 |
+| `cm` | `comments` | `st.cm` | 关闭 | 评论数 |
+| `sh` | `shares` | `st.sh` | 关闭 | 转发数 |
+| `fv` | `favorites` | `st.fv` | 关闭 | 收藏数 |
+
+每条结果默认保留 `i`（槽位号，传 `w` 时存在）、`p`（来源平台标识）、`pn`（平台中文名）、`k`（`m` 音乐 / `v` 视频）；在 `m=c` 极限封面模式下仅保留 `i`、`p`、`cv`。
+
+### 3 个独立搜索池与固定槽位地址
+
+搜索使用 3 个独立分类池，不影响现有歌单（`music`）、视频分 P（`video`）与合集（`collection`）池：
+
+| 搜索池 | 路径短名 | BC1 封面固定地址 | 播放 / 详情固定地址 |
+| --- | --- | --- | --- |
+| `search_music` | `m` | `/search/m/{i}/cover-gpu.png?w={世界编号}` | `/search/m/{i}?w={世界编号}` |
+| `search_video` | `v` | `/search/v/{i}/cover-gpu.png?w={世界编号}` | `/search/v/{i}?w={世界编号}` |
+| `search_all` | `a` | `/search/a/{i}/cover-gpu.png?w={世界编号}` | `/search/a/{i}?w={世界编号}` |
+
+- `/search/{m|v|a}/{i}/cover-gpu.png?w=...` 返回标准 `image/png`（`X-Texture-Format: wimbc1png1`、`X-Texture-Origin: top-left`、`X-Texture-Mipmaps: 0`）。
+- `/search/{m|v|a}/{i}?w=...` 普通播放器返回 302 播放地址；Unity UA 或 `json=1` 时音乐返回歌词 JSON、视频返回弹幕 JSON。
+- 也可通过 `/poll?world={世界编号}&pool=search_music`（或 `search_video`、`search_all`）读取当前搜索池快照。
+
+### 调用示例
+
+```bash
+# VRChat 前缀：搜网易云（默认精简模式，落 search_music 池）
+curl "https://api.kipfel.link/search?w=demo&p=wy&q=海阔天空"
+
+# 仅音乐混合搜索（网易云 + 酷狗 + QQ 音乐 + 酷我，落 search_music 池）
+curl "https://api.kipfel.link/search?w=demo&p=m&n=4&q=晴天"
+
+# 仅视频混合搜索（哔哩哔哩 + AcFun，落 search_video 池）
+curl "https://api.kipfel.link/search?w=demo&p=v&n=4&q=VRChat"
+
+# VRChat 前缀：搜 B 站，只返回 BC1 封面
+curl "https://api.kipfel.link/search?w=demo&p=bv&m=c&n=10&q=VRChat"
+
+# VRChat 前缀：搜 B 站，自定义只要封面 + 标题 + 播放 + 点赞 + 弹幕
+curl "https://api.kipfel.link/search?w=demo&p=bv&f=c,t,vw,lk,dm&n=8&q=VRChat"
+
+# 混合搜索（音视频全平台，每条标注 p / pn 来源平台，落 search_all 池）
+curl "https://api.kipfel.link/search?w=demo&p=a&n=10&q=晴天"
+```
+
+### 返回 JSON 示例
+
+默认模式（关闭统计，展示来源平台与 BC1 封面地址）：
+
+```json
+{
+  "ok": true,
+  "pl": "search_all",
+  "w": "demo",
+  "ce": "png",
+  "cf": "wimbc1png1",
+  "co": "top-left",
+  "cm": false,
+  "cs": 512,
+  "total": 2,
+  "items": [
+    {
+      "i": 0,
+      "p": "netease",
+      "pn": "网易云音乐",
+      "k": "m",
+      "t": "晴天",
+      "a": "周杰伦",
+      "du": 269,
+      "cv": "https://api.kipfel.link/search/a/0/cover-gpu.png?w=demo",
+      "u": "https://api.kipfel.link/search/a/0?w=demo"
+    },
+    {
+      "i": 1,
+      "p": "bilibili",
+      "pn": "哔哩哔哩",
+      "k": "v",
+      "t": "【4K修复】周杰伦 - 晴天MV",
+      "a": "某UP主",
+      "d": "视频简介...",
+      "du": 270,
+      "cv": "https://api.kipfel.link/search/a/1/cover-gpu.png?w=demo",
+      "u": "https://api.kipfel.link/search/a/1?w=demo"
+    }
+  ]
+}
+```
+
+极限封面模式（`m=c`）仅返回 `i`、`p`、`cv`；开启自定义统计（如 `f=c,t,vw,lk,dm`）时在条目内返回 `"st": { "vw": 139021, "lk": 6119, "dm": 145 }`。
+
+---
+
 ## 通用响应格式
 
 ### 错误响应格式

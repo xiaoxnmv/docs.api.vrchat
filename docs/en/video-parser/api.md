@@ -527,6 +527,139 @@ curl "https://api.kipfel.link/video-info/0?world=demo"
 
 ---
 
+## Multi-Platform Search & BC1 Covers {#search}
+
+Supports single-platform and mixed search across music platforms (NetEase, Kugou, QQ Music, Kuwo) and video platforms (Bilibili, AcFun). Every item identifies its source platform and provides a `wimbc1png1` BC1 GPU texture cover identical to lyric covers.
+
+**Endpoint**: `GET /search` (alias `GET /v4/search`)
+
+::: tip VRChat Parameter Order
+For VRChat worlds, place all fixed parameters (`w`, `p`, `pl`, `m`, `f`, `st`, `dm`, `n`, `pg`) first and put **`q=` last**, so players' keywords can be appended directly. Even when the trailing keyword contains `&`, it will not be truncated.
+:::
+
+### Query Parameters (short names also accept full names)
+
+| Short | Full | Default | Description |
+| --- | --- | --- | --- |
+| `w` | `world` | Optional | Enabled world ID for slot allocation; omit for dynamic BC1 cover URLs |
+| `p` | `platform` | `a` | `wy` (NetEase), `kg` (Kugou), `qq` (QQ Music), `kw` (Kuwo), `bv` (Bilibili), `ac` (AcFun), `m` (all music), `v` (all video), `a` (mixed), or comma-separated list e.g. `wy,kg,bv` |
+| `pl` | `pool` | Auto from `p` | Pool override: `m` (`search_music`), `v` (`search_video`), `a` (`search_all`) |
+| `m` | `preset` | `d` | Field preset: `c` (BC1 cover only), `s` (cover + title), `d` (default, stats off), `f` (full with stats) |
+| `f` | `fields` | From `m` | Custom comma-separated field codes (overrides `m`), see below |
+| `st` | `stats` | `0` | Pass `1` to enable all engagement stats (views, likes, danmaku, comments, shares, favorites) |
+| `dm` | `desc_max` | `80` | Maximum description length (`0` omits description, max `300`) |
+| `n` | `limit` | `10` | Result count (`1`–`30`) |
+| `pg` | `page` | `1` | Page number (starting at `1`) |
+| `q` | `keyword` | **Required (last)** | Search keyword |
+
+### Custom Field Codes (`f=`) & Compact JSON Keys
+
+Engagement stats are off by default to keep payloads compact for VRChat. Enable only the fields you need:
+
+| `f=` Code | Full Alias | JSON Key | Default | Description |
+| --- | --- | --- | --- | --- |
+| `c` | `cover` | `cv` | On | BC1 texture cover URL |
+| `t` | `title` | `t` | On | Title |
+| `d` | `desc` | `d` | On | Description (truncated to `dm`) |
+| `a` | `artist` / `author` | `a` | On | Artist / uploader |
+| `du` | `duration` | `du` | On | Duration in seconds |
+| `u` | `play` | `u` | On | Playback / details URL |
+| `al` | `album` | `al` | Off | Album name |
+| `id` | `id` / `bvid` | `id`, `bv` | Off | Platform item ID / BVID |
+| `src` | `url` / `source` | `src` | Off | Source URL |
+| `st` | `stats` | `st` | Off | All engagement stats |
+| `vw` | `views` | `st.vw` | Off | Views |
+| `lk` | `likes` | `st.lk` | Off | Likes |
+| `dm` | `danmaku` | `st.dm` | Off | Danmaku count |
+| `cm` | `comments` | `st.cm` | Off | Comments |
+| `sh` | `shares` | `st.sh` | Off | Shares |
+| `fv` | `favorites` | `st.fv` | Off | Favorites |
+
+Each item includes `i` (slot ID when `w` is set), `p` (source platform key), `pn` (platform display name), and `k` (`m` music / `v` video). In `m=c` cover-only mode, only `i`, `p`, and `cv` are returned.
+
+### 3 Independent Search Pools & Fixed Slot URLs
+
+Search uses 3 dedicated pools independent of `music`, `video`, and `collection`:
+
+| Search Pool | Short Path | Fixed BC1 Cover URL | Fixed Play / Details URL |
+| --- | --- | --- | --- |
+| `search_music` | `m` | `/search/m/{i}/cover-gpu.png?w={world}` | `/search/m/{i}?w={world}` |
+| `search_video` | `v` | `/search/v/{i}/cover-gpu.png?w={world}` | `/search/v/{i}?w={world}` |
+| `search_all` | `a` | `/search/a/{i}/cover-gpu.png?w={world}` | `/search/a/{i}?w={world}` |
+
+- `/search/{m|v|a}/{i}/cover-gpu.png?w=...` returns `image/png` with `X-Texture-Format: wimbc1png1`, `X-Texture-Origin: top-left`, and `X-Texture-Mipmaps: 0`.
+- `/search/{m|v|a}/{i}?w=...` redirects ordinary players (302); Unity UA or `json=1` returns lyrics JSON for music or danmaku JSON for video.
+- Current search pool snapshots can also be read via `/poll?world={world}&pool=search_music` (or `search_video`, `search_all`).
+
+### Examples
+
+```bash
+# Single music platform (search_music pool)
+curl "https://api.kipfel.link/search?w=demo&p=wy&q=Beyond"
+
+# Music-only mixed search (NetEase + Kugou + QQ Music + Kuwo -> search_music pool)
+curl "https://api.kipfel.link/search?w=demo&p=m&n=4&q=Beyond"
+
+# Video-only mixed search (Bilibili + AcFun -> search_video pool)
+curl "https://api.kipfel.link/search?w=demo&p=v&n=4&q=VRChat"
+
+# BC1 cover only (m=c)
+curl "https://api.kipfel.link/search?w=demo&p=bv&m=c&n=10&q=VRChat"
+
+# Custom fields: cover + title + views + likes + danmaku
+curl "https://api.kipfel.link/search?w=demo&p=bv&f=c,t,vw,lk,dm&n=8&q=VRChat"
+
+# All-platform mixed search (search_all pool)
+curl "https://api.kipfel.link/search?w=demo&p=a&n=10&q=VRChat"
+```
+
+### JSON Response Example
+
+Default mode (stats off; includes source platform and BC1 cover URL):
+
+```json
+{
+  "ok": true,
+  "pl": "search_all",
+  "w": "demo",
+  "ce": "png",
+  "cf": "wimbc1png1",
+  "co": "top-left",
+  "cm": false,
+  "cs": 512,
+  "total": 2,
+  "items": [
+    {
+      "i": 0,
+      "p": "netease",
+      "pn": "网易云音乐",
+      "k": "m",
+      "t": "Sunny Day",
+      "a": "Artist",
+      "du": 269,
+      "cv": "https://api.kipfel.link/search/a/0/cover-gpu.png?w=demo",
+      "u": "https://api.kipfel.link/search/a/0?w=demo"
+    },
+    {
+      "i": 1,
+      "p": "bilibili",
+      "pn": "哔哩哔哩",
+      "k": "v",
+      "t": "VRChat Showcase",
+      "a": "Creator",
+      "d": "Short description...",
+      "du": 185,
+      "cv": "https://api.kipfel.link/search/a/1/cover-gpu.png?w=demo",
+      "u": "https://api.kipfel.link/search/a/1?w=demo"
+    }
+  ]
+}
+```
+
+In `m=c` cover-only mode, each item contains only `i`, `p`, and `cv`. When stats are requested (e.g. `f=c,t,vw,lk,dm`), items include `"st": { "vw": 139021, "lk": 6119, "dm": 145 }`.
+
+---
+
 ## General Response Format
 
 ### Error Response Format
