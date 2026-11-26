@@ -184,18 +184,48 @@ In v1, `log_id` is the request ID. `video_id` uses an extracted BV ID, otherwise
 | Parameter | Description |
 |---|---|
 | `cdn` | Optional. Select an available CDN alias, for example `aly`. Omit it to use the default route. |
-| `track` | Optional. `original` plays the original track (default). `accompaniment` plays the instrumental track for QQ Music, Kugou, and NetEase Cloud Music. |
-| `url` | Required. The complete song link. Place API parameters such as `cdn`, `track`, and `json` before `url`. |
+| `track` | Optional. `original` plays the original track (default). `accompaniment` (alias `acc`) plays the accompaniment track for QQ Music, Kugou, and NetEase Cloud Music. |
+| `vocal` | Optional (with `track=accompaniment`). Integer `0`–`100` for vocal volume: `0` pure instrumental, default `18` low guide vocal, `50` medium vocal, `100` full vocal (NetEase & QQ Music; Kugou is always pure instrumental). |
+| `url` | Required. The complete song link. Place API parameters such as `cdn`, `track`, `vocal`, and `json` before `url`. |
 
 **Examples**:
 
 ```bash
 curl -G "https://api.kipfel.link/v1/music" --data-urlencode "cdn=aly" --data-urlencode "url=https://www.kugou.com/mixsong/j2i4p51.html"
 curl -G "https://api.kipfel.link/v3/vrc-lyric" --data-urlencode "track=accompaniment" --data-urlencode "json=1" --data-urlencode "url=https://www.kugou.com/mixsong/j2i4p51.html"
-curl -G "https://api.kipfel.link/v4/vrc" --data-urlencode "cdn=aly" --data-urlencode "track=accompaniment" --data-urlencode "url=https://www.kugou.com/mixsong/j2i4p51.html"
+curl -G "https://api.kipfel.link/v4/vrc" --data-urlencode "cdn=aly" --data-urlencode "track=accompaniment" --data-urlencode "vocal=0" --data-urlencode "url=https://music.163.com/song?id=1330348068"
+curl -G "https://api.kipfel.link/v4/vrc" --data-urlencode "track=acc" --data-urlencode "vocal=18" --data-urlencode "url=https://music.163.com/song?id=1330348068"
 ```
 
-**Response**: A successful playback request returns a 302 redirect to the selected track. Accompaniment is served as MP3 audio. In V1 JSON, the playback URL is `data.content.play_url`. In V3/V4 lyrics JSON, passing `cdn`, `track`, or `media=1` adds the playback URL as the top-level `url`.
+**JSON Response Example** (with `track=accompaniment` and `json=1`):
+
+```json
+{
+  "success": true,
+  "url": "https://music-api-aly.example/m/track.mp3?t=...",
+  "url_expires_at": "2026-11-27T01:00:00Z",
+  "data": {
+    "platform": "netease",
+    "song_name": "起风了",
+    "singer": "买辣椒也用券",
+    "duration": 325,
+    "lyrics": [
+      {
+        "time": 18.46,
+        "text": "这一路上走走停停",
+        "words": [[0, 320, 1], [320, 280, 1], [600, 350, 1]]
+      }
+    ],
+    "tlyrics": [],
+    "cover_mode": "bc1",
+    "cover_encoding": "png",
+    "cover_format": "wimbc1png1",
+    "cover_url": "https://api.kipfel.link/cover-gpu.png?t=..."
+  }
+}
+```
+
+**Response**: A successful playback request returns a 302 redirect to the selected track. Accompaniment is served as MP3 audio. In V1 JSON, the playback URL is `data.content.play_url`. In V3/V4 lyrics JSON, passing `cdn`, `track`, or `media=1` adds the playback URL as the top-level `url` while preserving full lyrics and cover metadata. If the platform has no accompaniment track for a song (such as purely instrumental pieces), the endpoint returns `422 ACCOMPANIMENT_UNAVAILABLE` (`details.reason: "STEMS_UNAVAILABLE"`).
 
 ---
 
@@ -261,7 +291,7 @@ The danmaku interface now uses top-level `comments`, retaining top-level `danmak
 **Interface**: `/v3/vrc-lyric?url={music link}`  
 **Parameters**: `url` (required); `json=1` (optional).
 
-**JSON Response Format** (default Base64 mode, with no cover available):
+**JSON Response Format** (with word-by-word `words` timeline, default Base64 cover mode):
 
 ```json
 {
@@ -271,7 +301,12 @@ The danmaku interface now uses top-level `comments`, retaining top-level `danmak
     "lyrics": [
       {
         "time": 18.466,
-        "text": "Lyrics"
+        "text": "今天我寒夜里看雪飘过",
+        "words": [
+          [0, 320, 1],
+          [320, 280, 1],
+          [600, 410, 1]
+        ]
       }
     ],
     "tlyrics": [],
@@ -296,8 +331,9 @@ The danmaku interface now uses top-level `comments`, retaining top-level `danmak
 
 
 Field descriptions:
-- `data.platform` (string): platform key, such as `netease`, `kugou` or `qqmusic`.
-- `data.lyrics` / `data.tlyrics` (array): original / translated lyrics. Entries use `{ "time": 18.466, "text": "Lyrics" }`; **timestamps are in seconds and may contain decimals**. Missing lyrics produce empty arrays.
+- `data.platform` (string): platform key, such as `netease`, `kugou`, `qqmusic`, `kuwo`, or `qishui`.
+- `data.lyrics` / `data.tlyrics` (array): original / translated lyrics. Entries use `{ "time": 18.466, "text": "Lyrics", "words": [...] }`; **timestamps are in seconds and may contain decimals**. Missing lyrics produce empty arrays.
+- `data.lyrics[].words` (array, optional): **word-by-word timing**, present when the upstream platform provides syllable/word lyrics (NetEase YRC, QQ QRC, Kugou KRC, Qishui); omitted for plain line-level LRC. Each item is `[offsetMs, durationMs, charCount]` relative to the line's `time`.
 - `data.song_name` / `data.singer` (string): song title / artist.
 - `data.duration` (number): total duration in seconds.
 - `data.audio_id` / `data.album_id` / `data.singer_id` (string): currently empty strings in this compatibility response.
@@ -330,6 +366,37 @@ The BC1 cover URL returns `image/png` containing BC1 blocks for a shader. Use a 
 
 ```bash
 curl -G "https://api.kipfel.link/v4/vrc" --data-urlencode "json=1" --data-urlencode "world=demo" --data-urlencode "url=https://music.163.com/song?id=347230"
+```
+
+**BC1 Mode JSON Response Example**:
+
+```json
+{
+  "success": true,
+  "data": {
+    "platform": "netease",
+    "song_name": "海阔天空",
+    "singer": "Beyond",
+    "duration": 326,
+    "lyrics": [
+      {
+        "time": 18.466,
+        "text": "今天我寒夜里看雪飘过",
+        "words": [[0, 320, 1], [320, 280, 1], [600, 410, 1]]
+      }
+    ],
+    "tlyrics": [],
+    "cover_mode": "bc1",
+    "cover_encoding": "png",
+    "cover_format": "wimbc1png1",
+    "cover_origin": "top-left",
+    "cover_mipmaps": false,
+    "cover_max_side": 512,
+    "cover_slot": 0,
+    "cover_world": "demo",
+    "cover_url": "https://api.kipfel.link/s/0/cover-gpu.png?world=demo"
+  }
+}
 ```
 
 Replace `demo` with your world ID. Add `media=1` to include the audio URL in the top-level `url`.

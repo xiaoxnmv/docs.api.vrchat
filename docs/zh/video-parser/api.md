@@ -184,18 +184,57 @@ v1 的 `log_id` 是请求 ID。`video_id` 在能提取 BV 号时使用 BV 号，
 | 参数 | 说明 |
 |---|---|
 | `cdn` | 可选，指定可用的线路参数，例如 `aly`；省略时使用默认线路 |
-| `track` | 可选，`original` 播放原版（默认），`accompaniment` 播放纯伴奏（QQ 音乐、酷狗、网易云音乐） |
-| `url` | 必填，完整歌曲链接。把 `cdn`、`track`、`json` 等接口参数都写在 `url` 前面 |
+| `track` | 可选，`original` 播放原版（默认），`accompaniment`（简写 `acc`）播放伴奏（QQ 音乐、酷狗、网易云音乐） |
+| `vocal` | 可选（需配合 `track=accompaniment`），整数 `0`–`100` 调节人声大小：`0` 纯伴奏，默认 `18` 高伴奏低人声，`50` 中等人声，`100` 全人声（支持网易云、QQ 音乐；酷狗固定纯伴奏） |
+| `url` | 必填，完整歌曲链接。把 `cdn`、`track`、`vocal`、`json` 等接口参数都写在 `url` 前面 |
 
 **调用示例**：
 
 ```bash
 curl -G "https://api.kipfel.link/v1/music" --data-urlencode "cdn=aly" --data-urlencode "url=https://www.kugou.com/mixsong/j2i4p51.html"
 curl -G "https://api.kipfel.link/v3/vrc-lyric" --data-urlencode "track=accompaniment" --data-urlencode "json=1" --data-urlencode "url=https://www.kugou.com/mixsong/j2i4p51.html"
-curl -G "https://api.kipfel.link/v4/vrc" --data-urlencode "cdn=aly" --data-urlencode "track=accompaniment" --data-urlencode "url=https://www.kugou.com/mixsong/j2i4p51.html"
+curl -G "https://api.kipfel.link/v4/vrc" --data-urlencode "cdn=aly" --data-urlencode "track=accompaniment" --data-urlencode "vocal=0" --data-urlencode "url=https://music.163.com/song?id=1330348068"
+curl -G "https://api.kipfel.link/v4/vrc" --data-urlencode "track=acc" --data-urlencode "vocal=18" --data-urlencode "url=https://music.163.com/song?id=1330348068"
 ```
 
-**响应**：普通播放请求成功时返回 302，跳转到所选音轨；伴奏为 MP3 音频。V1 的 JSON 播放地址在 `data.content.play_url`。V3/V4 返回歌词等 JSON 时，指定 `cdn`、`track` 或 `media=1` 会在顶层 `url` 返回播放地址。
+**JSON 响应示例**（带 `track=accompaniment` 与 `json=1`）：
+
+```json
+{
+  "success": true,
+  "url": "https://music-api-aly.example/m/track.mp3?t=...",
+  "url_expires_at": "2026-11-27T01:00:00Z",
+  "data": {
+    "platform": "netease",
+    "song_name": "起风了",
+    "singer": "买辣椒也用券",
+    "duration": 325,
+    "lyrics": [
+      {
+        "time": 18.46,
+        "text": "这一路上走走停停",
+        "words": [
+          [0, 320, 1],
+          [320, 280, 1],
+          [600, 350, 1],
+          [950, 300, 1],
+          [1250, 280, 1],
+          [1530, 300, 1],
+          [1830, 320, 1],
+          [2150, 480, 1]
+        ]
+      }
+    ],
+    "tlyrics": [],
+    "cover_mode": "bc1",
+    "cover_encoding": "png",
+    "cover_format": "wimbc1png1",
+    "cover_url": "https://api.kipfel.link/cover-gpu.png?t=..."
+  }
+}
+```
+
+**响应**：普通播放请求成功时返回 302，跳转到所选音轨；伴奏为 MP3 音频。V1 的 JSON 播放地址在 `data.content.play_url`。V3/V4 返回歌词等 JSON 时，指定 `cdn`、`track` 或 `media=1` 会在顶层 `url` 返回播放地址，并保留完整歌词与封面。若歌曲本身无伴奏（例如纯音乐），接口会返回 `422 ACCOMPANIMENT_UNAVAILABLE`（`details.reason: "STEMS_UNAVAILABLE"`）。
 
 ---
 
@@ -261,7 +300,7 @@ v3 接口面向需要弹幕、歌词的播放器。**UA 含 `Unity` 或 `unity`�
 **接口**：`/v3/vrc-lyric?url={音乐链接}`  
 **参数**：`url` (必填)；`json=1` (可选)。
 
-**JSON 响应格式**（默认 Base64 模式，未取到封面时）：
+**JSON 响应格式**（含逐字歌词 `words`，默认 Base64 封面模式）：
 
 ```json
 {
@@ -271,10 +310,20 @@ v3 接口面向需要弹幕、歌词的播放器。**UA 含 `Unity` 或 `unity`�
     "lyrics": [
       {
         "time": 18.466,
-        "text": "歌词内容"
+        "text": "今天我寒夜里看雪飘过",
+        "words": [
+          [0, 320, 1],
+          [320, 280, 1],
+          [600, 410, 1]
+        ]
       }
     ],
-    "tlyrics": [],
+    "tlyrics": [
+      {
+        "time": 18.466,
+        "text": "Today I watch the snow fall in the cold night"
+      }
+    ],
     "song_name": "海阔天空",
     "singer": "Beyond",
     "audio_id": "",
@@ -296,8 +345,9 @@ v3 接口面向需要弹幕、歌词的播放器。**UA 含 `Unity` 或 `unity`�
 
 
 字段说明：
-- `data.platform` (string)：平台标识，如 `netease`、`kugou`、`qqmusic`。
-- `data.lyrics` / `data.tlyrics` (array)：原歌词 / 翻译歌词；条目为 `{ "time": 18.466, "text": "歌词内容" }`。**时间单位是秒，可以带小数**，没有内容时为空数组。
+- `data.platform` (string)：平台标识，如 `netease`、`kugou`、`qqmusic`、`kuwo`、`qishui`。
+- `data.lyrics` / `data.tlyrics` (array)：原歌词 / 翻译歌词；条目为 `{ "time": 18.466, "text": "歌词内容", "words": [...] }`。**时间单位是秒，可以带小数**，没有内容时为空数组。
+- `data.lyrics[].words` (array，可选)：**逐字时间轴**，仅在平台提供逐字歌词（网易云 YRC、QQ 音乐 QRC、酷狗 KRC、汽水逐字等）时返回；普通逐行 LRC 省略该字段。每个元素为 3 元整型数组 `[相对句首起始ms, 持续时长ms, 字符数]`（按 Unicode 字符数切片 `text`，用于卡拉 OK 逐字高亮）。
 - `data.song_name` / `data.singer` (string)：歌曲名称 / 歌手。
 - `data.duration` (number)：总时长，单位：秒。
 - `data.audio_id` / `data.album_id` / `data.singer_id` (string)：当前兼容结构中为空字符串。
@@ -331,6 +381,37 @@ BC1 模式下，`cover_url` 返回 `image/png`。PNG 内存放供着色器读取
 
 ```bash
 curl -G "https://api.kipfel.link/v4/vrc" --data-urlencode "json=1" --data-urlencode "world=demo" --data-urlencode "url=https://music.163.com/song?id=347230"
+```
+
+**BC1 模式 JSON 响应示例**：
+
+```json
+{
+  "success": true,
+  "data": {
+    "platform": "netease",
+    "song_name": "海阔天空",
+    "singer": "Beyond",
+    "duration": 326,
+    "lyrics": [
+      {
+        "time": 18.466,
+        "text": "今天我寒夜里看雪飘过",
+        "words": [[0, 320, 1], [320, 280, 1], [600, 410, 1]]
+      }
+    ],
+    "tlyrics": [],
+    "cover_mode": "bc1",
+    "cover_encoding": "png",
+    "cover_format": "wimbc1png1",
+    "cover_origin": "top-left",
+    "cover_mipmaps": false,
+    "cover_max_side": 512,
+    "cover_slot": 0,
+    "cover_world": "demo",
+    "cover_url": "https://api.kipfel.link/s/0/cover-gpu.png?world=demo"
+  }
+}
 ```
 
 将 `demo` 换成你已启用的世界编号。需要在同一个 JSON 中取得音频地址时，可加 `media=1`，然后读取顶层 `url`。
@@ -374,6 +455,45 @@ v4 的视频 JSON 额外返回顶层 `playback`。基本字段有 `source`、`ti
 - `error` (string，可选)：如 `WORLD_REQUIRED`、`WORLD_UNAVAILABLE`、`INVALID_WORLD`、`PART_POOL_UNAVAILABLE`、`PART_METADATA_ERROR`，表示附加信息或编号分配未完成，不代表弹幕 JSON 一定失败。
 
 需要分 P / 合集时请传 `world`。这里分配编号**不会替换 `/p` 手动加载的清单**。
+
+**视频分 P / 详情 JSON 响应示例**（`GET /video-info/0?world=demo`）：
+
+```json
+{
+  "success": true,
+  "playback": {
+    "source": "https://www.bilibili.com/video/BV1aAhm6vEA6?p=1",
+    "title": "视频标题",
+    "author": "UP主名称",
+    "duration": 180,
+    "bvid": "BV1aAhm6vEA6",
+    "cid": 123456789,
+    "page": 1,
+    "hasParts": true,
+    "hasCollection": false,
+    "currentId": 0,
+    "list": {
+      "ok": true,
+      "pool": "video",
+      "type": "bilibili_parts",
+      "world": "demo",
+      "total": 1,
+      "playableTotal": 2,
+      "items": [
+        {
+          "i": 0,
+          "bvid": "BV1aAhm6vEA6",
+          "title": "视频标题",
+          "parts": [
+            { "i": 0, "page": 1, "cid": 123456789, "title": "P1 标题", "duration": 90 },
+            { "i": 1, "page": 2, "cid": 123456790, "title": "P2 标题", "duration": 90 }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
 
 ---
 
@@ -693,6 +813,9 @@ curl "https://api.kipfel.link/search?w=demo&p=a&n=10&q=晴天"
 | `WORLD_DISABLED` | 403 | 世界已停用 |
 | `SLOT_POOL_FULL` | 409 | 池满且剩余记录仍受保护 |
 | `SLOT_MEDIA_ERROR` | 502 | 记录的播放直链解析失败 |
+| `INVALID_TRACK / INVALID_VOCAL_LEVEL` | 400 | `track` 或 `vocal`（需为 `0`–`100` 整数）参数无效 |
+| `ACCOMPANIMENT_UNAVAILABLE` | 422 | 该歌曲无可用伴奏（如纯音乐或需会员权限） |
+| `STEMS_NOT_READY` | 503 | 伴奏仍在准备中，稍后重试同一地址 |
 
 ::: tip 歌词/弹幕接口的“软失败”
 通过参数校验后，v3 / v4 的 Unity 分支解析失败也返回 HTTP 200、`success: true` 的空壳：弹幕为 `platform: "generic"`、`comments: []`；歌词为 `generic`、空歌词与空封面字段，空壳不保证带 `cover_mode`。参数缺失、无效链接等校验错误仍正常报错。

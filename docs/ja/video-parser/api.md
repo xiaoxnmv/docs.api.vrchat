@@ -184,18 +184,48 @@ v1 の `log_id` はゲートウェイのリクエスト ID。`video_id` は抽�
 | パラメータ | 説明 |
 |---|---|
 | `cdn` | 任意。利用可能な CDN の識別子（例：`aly`）。省略時は既定の経路を使用します。 |
-| `track` | 任意。`original` はオリジナル音源（既定値）、`accompaniment` は伴奏音源（QQ Music、Kugou、NetEase Cloud Music）を指定します。 |
-| `url` | 必須。曲の完全な URL。`cdn`、`track`、`json` などの API パラメータはすべて `url` より前に指定します。 |
+| `track` | 任意。`original` はオリジナル音源（既定値）、`accompaniment`（短縮形 `acc`）は伴奏音源（QQ Music、Kugou、NetEase Cloud Music）を指定します。 |
+| `vocal` | 任意（`track=accompaniment` 指定時）。`0`〜`100` の整数でボーカル音量を指定：`0` 純伴奏、既定 `18` 低ボーカルガイド、`50` 中程度、`100` フルボーカル（NetEase・QQ Music 対応、Kugou は常に純伴奏）。 |
+| `url` | 必須。曲の完全な URL。`cdn`、`track`、`vocal`、`json` などの API パラメータはすべて `url` より前に指定します。 |
 
 **呼び出し例**：
 
 ```bash
 curl -G "https://api.kipfel.link/v1/music" --data-urlencode "cdn=aly" --data-urlencode "url=https://www.kugou.com/mixsong/j2i4p51.html"
 curl -G "https://api.kipfel.link/v3/vrc-lyric" --data-urlencode "track=accompaniment" --data-urlencode "json=1" --data-urlencode "url=https://www.kugou.com/mixsong/j2i4p51.html"
-curl -G "https://api.kipfel.link/v4/vrc" --data-urlencode "cdn=aly" --data-urlencode "track=accompaniment" --data-urlencode "url=https://www.kugou.com/mixsong/j2i4p51.html"
+curl -G "https://api.kipfel.link/v4/vrc" --data-urlencode "cdn=aly" --data-urlencode "track=accompaniment" --data-urlencode "vocal=0" --data-urlencode "url=https://music.163.com/song?id=1330348068"
+curl -G "https://api.kipfel.link/v4/vrc" --data-urlencode "track=acc" --data-urlencode "vocal=18" --data-urlencode "url=https://music.163.com/song?id=1330348068"
 ```
 
-**応答**：通常の再生リクエストが成功すると、指定した音源へ 302 リダイレクトします。伴奏は MP3 音声です。V1 の JSON では再生 URL は `data.content.play_url` に入ります。V3/V4 の歌詞 JSON では、`cdn`、`track`、または `media=1` を指定するとトップレベルの `url` に再生 URL が入ります。
+**JSON 応答例**（`track=accompaniment` と `json=1` 指定時）：
+
+```json
+{
+  "success": true,
+  "url": "https://music-api-aly.example/m/track.mp3?t=...",
+  "url_expires_at": "2026-11-27T01:00:00Z",
+  "data": {
+    "platform": "netease",
+    "song_name": "起风了",
+    "singer": "买辣椒也用券",
+    "duration": 325,
+    "lyrics": [
+      {
+        "time": 18.46,
+        "text": "这一路上走走停停",
+        "words": [[0, 320, 1], [320, 280, 1], [600, 350, 1]]
+      }
+    ],
+    "tlyrics": [],
+    "cover_mode": "bc1",
+    "cover_encoding": "png",
+    "cover_format": "wimbc1png1",
+    "cover_url": "https://api.kipfel.link/cover-gpu.png?t=..."
+  }
+}
+```
+
+**応答**：通常の再生リクエストが成功すると、指定した音源へ 302 リダイレクトします。伴奏は MP3 音声です。V1 の JSON では再生 URL は `data.content.play_url` に入ります。V3/V4 の歌詞 JSON では、`cdn`、`track`、または `media=1` を指定するとトップレベルの `url` に再生 URL が入り、歌詞とカバー情報もそのまま返されます。伴奏トラックが存在しない楽曲（インスト曲など）は `422 ACCOMPANIMENT_UNAVAILABLE`（`details.reason: "STEMS_UNAVAILABLE"`）を返します。
 
 ---
 
@@ -261,7 +291,7 @@ v3 は弾幕や歌詞を必要とするプレイヤー向けです。**UA に `U
 **インターフェース**：`/v3/vrc-lyric?url={音楽リンク}`  
 **パラメータ**：`url` (必須)、`json=1` (任意)。
 
-**JSON 応答形式**（既定の Base64 モード、カバーを取得できなかった場合）：
+**JSON 応答形式**（文字単位タイムライン `words` 付き、既定の Base64 カバーモード）：
 
 ```json
 {
@@ -271,7 +301,12 @@ v3 は弾幕や歌詞を必要とするプレイヤー向けです。**UA に `U
     "lyrics": [
       {
         "time": 18.466,
-        "text": "歌詞"
+        "text": "今天我寒夜里看雪飘过",
+        "words": [
+          [0, 320, 1],
+          [320, 280, 1],
+          [600, 410, 1]
+        ]
       }
     ],
     "tlyrics": [],
@@ -296,8 +331,9 @@ v3 は弾幕や歌詞を必要とするプレイヤー向けです。**UA に `U
 
 
 フィールド説明：
-- `data.platform` (string)：`netease`、`kugou`、`qqmusic` などの識別子。
-- `data.lyrics` / `data.tlyrics` (array)：原文 / 翻訳歌詞。各項目は `{ "time": 18.466, "text": "歌詞" }`。**時刻の単位は秒で、小数を含むことがあります**。歌詞がない場合は空配列です。
+- `data.platform` (string)：`netease`、`kugou`、`qqmusic`、`kuwo`、`qishui` などの識別子。
+- `data.lyrics` / `data.tlyrics` (array)：原文 / 翻訳歌詞。各項目は `{ "time": 18.466, "text": "歌詞", "words": [...] }`。**時刻の単位は秒で、小数を含むことがあります**。歌詞がない場合は空配列です。
+- `data.lyrics[].words` (array、任意)：**文字単位（カラオケ）タイムライン**。プラットフォームが文字単位歌詞（NetEase YRC、QQ QRC、Kugou KRC、Qishui）を提供する場合のみ含まれ、通常の LRC では省略されます。各要素は `[行頭からの開始ms, 継続時間ms, 文字数]` の 3 要素配列です。
 - `data.song_name` / `data.singer` (string)：曲名 / 歌手。
 - `data.duration` (number)：全体の長さ、単位は秒。
 - `data.audio_id` / `data.album_id` / `data.singer_id` (string)：現在の互換応答では空文字列です。
@@ -330,6 +366,37 @@ BC1 のカバー URL は、シェーダー向けの BC1 ブロックを格納し
 
 ```bash
 curl -G "https://api.kipfel.link/v4/vrc" --data-urlencode "json=1" --data-urlencode "world=demo" --data-urlencode "url=https://music.163.com/song?id=347230"
+```
+
+**BC1 モード JSON 応答例**：
+
+```json
+{
+  "success": true,
+  "data": {
+    "platform": "netease",
+    "song_name": "海阔天空",
+    "singer": "Beyond",
+    "duration": 326,
+    "lyrics": [
+      {
+        "time": 18.466,
+        "text": "今天我寒夜里看雪飘过",
+        "words": [[0, 320, 1], [320, 280, 1], [600, 410, 1]]
+      }
+    ],
+    "tlyrics": [],
+    "cover_mode": "bc1",
+    "cover_encoding": "png",
+    "cover_format": "wimbc1png1",
+    "cover_origin": "top-left",
+    "cover_mipmaps": false,
+    "cover_max_side": 512,
+    "cover_slot": 0,
+    "cover_world": "demo",
+    "cover_url": "https://api.kipfel.link/s/0/cover-gpu.png?world=demo"
+  }
+}
 ```
 
 `demo` を使用するワールド ID に置き換えてください。`media=1` を指定すると、トップレベルの `url` に音声 URL も含まれます。
